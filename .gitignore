@@ -1,0 +1,16 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Training artifacts (keep the repo light; commit only your BEST model)
+tb_logs/
+experiments/monitor/
+models/*/            # per-run best_model folders
+
+# Keep the canonical submission model and the results table
+!models/dqn_model.zip
+!experiments/results.csv
+
+# OS
+.DS_Store
