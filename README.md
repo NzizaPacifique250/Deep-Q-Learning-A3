@@ -79,15 +79,28 @@ running the commands above.)_
 
 | Member | Run | lr | gamma | batch | eps_start | eps_end | eps_decay | Best mean reward | Noted behavior |
 |--------|-----|----|-------|-------|-----------|---------|-----------|------------------|----------------|
-|        |     |    |       |       |           |         |           |                  |                |
+| Nzizapacifique250 | exp01 | 1e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | -21.00 | Baseline stayed at the minimum evaluation score. |
+| Nzizapacifique250 | exp02 | 5e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | Higher learning rate did not improve evaluation. |
+| Nzizapacifique250 | exp03 | 5e-5 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | Lower learning rate also stayed at -21.00. |
+| Nzizapacifique250 | exp04 | 1e-4 | 0.95 | 32 | 1.0 | 0.05 | 0.10 | Shorter reward horizon produced no measurable gain. |
+| Nzizapacifique250 | exp05 | 1e-4 | 0.999 | 32 | 1.0 | 0.05 | 0.10 | Longer reward horizon produced no measurable gain. |
+| Nzizapacifique250 | exp06 | 1e-4 | 0.99 | 64 | 1.0 | 0.05 | 0.10 | First measurable improvement; peaked at -20.60. |
+| Nzizapacifique250 | exp07 | 1e-4 | 0.99 | 128 | 1.0 | 0.05 | 0.10 | Best run; improved after 125k steps and peaked at -20.20. |
+| Nzizapacifique250 | exp08 | 1e-4 | 0.99 | 32 | 1.0 | 0.01 | 0.10 | Faster exploitation did not improve evaluation. |
+| Nzizapacifique250 | exp09 | 1e-4 | 0.99 | 32 | 1.0 | 0.10 | 0.30 | Longer exploration did not improve within 200k steps. |
+| Nzizapacifique250 | exp10 | 5e-4 | 0.99 | 64 | 1.0 | 0.02 | 0.20 | Combined configuration stayed at -21.00. |
 
-_(40 rows total — 10 per member.)_
+_(10 Nzizapacifique250 rows completed; other members can append their results.)_
 
 ## Final Chosen Configuration
 
-- **Member:** _TBD_
-- **Config:** `lr=…, gamma=…, batch_size=…, eps_start=…, eps_end=…, eps_decay_frac=…`
-- **Reasoning:** _Why this run gave the highest / most stable eval reward._
+- **Member:** Nzizapacifique250
+- **Run:** `nzizapacifique250_exp07`
+- **Config:** `lr=1e-4, gamma=0.99, batch_size=128, eps_start=1.0, eps_end=0.05, eps_decay_frac=0.10`
+- **Best mean reward:** `-20.20`
+- **Reasoning:** This was the strongest greedy evaluation result in the sweep. It began
+  improving after 125,000 steps and outperformed the next-best batch-64 run (`-20.60`). Its
+  best checkpoint is promoted to `models/dqn_model.zip`.
 
 ## Gameplay Demo
 
@@ -95,9 +108,11 @@ _(Link or embed the video of `play.py` running with the final model here.)_
 
 ## Discussion
 
-Summarize across all experiments:
-- **What helped:** e.g. moderate learning rate (1e-4–5e-4), high gamma (0.99) for Pong's
-  delayed rewards, larger batch for more stable updates, enough exploration before decaying ε.
-- **What hurt:** e.g. too-high lr → divergence/instability; too-low gamma → short-sighted play;
-  too-fast ε decay → premature exploitation of a bad policy; too-small buffer → forgetting.
-- **Why the final model behaves as it does:** tie the winning config back to these effects.
+- **What helped:** Increasing the batch size was the only tested change that produced a
+  measurable greedy-evaluation improvement. Batch 64 reached `-20.60`, while batch 128 reached
+  `-20.20`.
+- **What did not help within this budget:** Changing learning rate, gamma, final epsilon, or
+  exploration decay left the best mean evaluation at `-21.00` in these single-seed runs.
+- **Interpretation:** The winning model is still close to the minimum Pong score, so 200,000
+  timesteps were enough to compare early learning behavior but not enough to produce a strong
+  player. More timesteps and multiple seeds are needed before making a robust general claim.

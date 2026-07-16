@@ -6,7 +6,9 @@ __pycache__/
 # Training artifacts (keep the repo light; commit only your BEST model)
 tb_logs/
 experiments/monitor/
-models/*/            # per-run best_model folders
+# Per-run best-model folders and final models
+models/*/
+models/dqn_model_*.zip
 
 # Keep the canonical submission model and the results table
 !models/dqn_model.zip
