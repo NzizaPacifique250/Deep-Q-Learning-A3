@@ -66,16 +66,11 @@ Atari observations are raw **84×84×4 stacked grayscale frames** (image data).
   It must learn every pixel-position relationship independently, needing far more parameters
   and data to reach the same understanding.
 
-**Conclusion:** For pixel-based Atari, **CnnPolicy is the correct choice and clearly
-outperforms MlpPolicy** — the MLP learns slowly or plateaus near random play, while the CNN
-steadily improves. We therefore use `CnnPolicy` for all tuning experiments and only run MLP
-once as a documented baseline for comparison. _(Paste your two comparison numbers here after
-running the commands above.)_
+**Conclusion:** `CnnPolicy` preserves the spatial structure of Atari frames and is therefore
+used for all tuning experiments. `MlpPolicy` remains available as an optional architecture
+baseline.
 
 ## Hyperparameter Tuning Results (merged from all members)
-
-> Generate each member's block with `python summarize_results.py --member <name>` and paste
-> below, then add a short qualitative note per row in the "Noted behavior" column.
 
 | Member | Run | lr | gamma | batch | eps_start | eps_end | eps_decay | Best mean reward | Noted behavior |
 |--------|-----|----|-------|-------|-----------|---------|-----------|------------------|----------------|
@@ -102,9 +97,13 @@ _(10 Nzizapacifique250 rows completed; other members can append their results.)_
   improving after 125,000 steps and outperformed the next-best batch-64 run (`-20.60`). Its
   best checkpoint is promoted to `models/dqn_model.zip`.
 
-## Gameplay Demo
+## Gameplay Evaluation
 
-_(Link or embed the video of `play.py` running with the final model here.)_
+Run the promoted model headlessly with:
+
+```bash
+python play.py --model models/dqn_model.zip --episodes 3 --no-render
+```
 
 ## Discussion
 

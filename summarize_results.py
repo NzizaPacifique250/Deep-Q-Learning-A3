@@ -45,7 +45,6 @@ def main():
               f"{r['batch_size']} | {r['eps_start']} | {r['eps_end']} | {r['eps_decay_frac']} | "
               f"{r['best_mean_reward']} | _(add note)_ |")
 
-    # Highlight the best run overall
     def score(r):
         try:
             return float(r["best_mean_reward"])

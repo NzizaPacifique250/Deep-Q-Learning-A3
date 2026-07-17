@@ -20,7 +20,7 @@ import argparse
 import subprocess
 import sys
 
-MEMBER = "member"   # <-- change to your name/initials, e.g. "alice"
+MEMBER = "nzizapacifique250"
 
 # Baseline is exp 1; each later row changes one thing (mostly) vs the baseline.
 EXPERIMENTS = [

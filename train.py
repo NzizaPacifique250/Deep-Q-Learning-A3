@@ -31,18 +31,14 @@ from stable_baselines3.common.vec_env import VecFrameStack
 # Register Atari (ALE/*) environments with Gymnasium (required by ale-py >= 0.10)
 gym.register_envs(ale_py)
 
-# --------------------------------------------------------------------------
-# Group-agreed constants — keep these the SAME across every member's runs
-# so results are comparable. Change ENV_ID once as a group, not per-member.
-# --------------------------------------------------------------------------
-ENV_ID = "ALE/Pong-v5"          # e.g. swap for ALE/Breakout-v5, ALE/SpaceInvaders-v5
-N_ENVS = 4                      # parallel envs for faster data collection
-FRAME_STACK = 4                 # standard Atari frame stacking
-POLICY = "CnnPolicy"            # "CnnPolicy" (default for Atari) or "MlpPolicy" for comparison
-LOG_DIR = "./tb_logs"           # TensorBoard logs
-MODEL_DIR = "./models"          # saved models
-MONITOR_DIR = "./experiments/monitor"   # per-run reward/episode-length CSVs
-RESULTS_CSV = "./experiments/results.csv"   # one row per run, appended
+ENV_ID = "ALE/Pong-v5"
+N_ENVS = 4
+FRAME_STACK = 4
+POLICY = "CnnPolicy"
+LOG_DIR = "./tb_logs"
+MODEL_DIR = "./models"
+MONITOR_DIR = "./experiments/monitor"
+RESULTS_CSV = "./experiments/results.csv"
 
 
 def parse_args():
@@ -102,9 +98,7 @@ def main():
     best_model_dir = os.path.join(MODEL_DIR, args.run_name)
     os.makedirs(best_model_dir, exist_ok=True)
 
-    # Training env (logs episode reward + length to per-run monitor CSVs)
     env = make_env(args.seed, monitor_dir=run_monitor_dir)
-    # Separate eval env (different seed) for unbiased greedy evaluation
     eval_env = make_env(args.seed + 100)
 
     model = DQN(
@@ -125,9 +119,7 @@ def main():
         tensorboard_log=LOG_DIR,
     )
 
-    # EvalCallback runs a greedy (deterministic) evaluation every eval_freq steps,
-    # logs mean reward to TensorBoard, and saves the best model automatically.
-    # eval_freq is per-env, so divide by N_ENVS to get the intended global cadence.
+    # EvalCallback counts vector-environment calls, so scale the global frequency by N_ENVS.
     eval_callback = EvalCallback(
         eval_env,
         best_model_save_path=best_model_dir,
