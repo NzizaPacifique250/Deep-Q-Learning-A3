@@ -1,103 +1,124 @@
-# DQN Atari Agent — Group Project
+# DQN Atari Agent — Edwin's Individual Work (ALE/Breakout-v5)
 
-Training and evaluating a **DQN** agent (Stable Baselines3 + Gymnasium) on **`ALE/Pong-v5`**.
+Part of the group's [Deep-Q-Learning-A3](../README.md) submission. Training and evaluating a
+DQN agent (Stable Baselines3 + Gymnasium) on **`ALE/Breakout-v5`** — see the top-level README
+for why each member used a different Atari environment.
 
-Pong is chosen for its clear, dense-ish reward signal (+1 when the agent scores, −1 when it
-concedes; episode score ranges from −21 to +21) and relatively fast learning, which makes
-hyperparameter effects visible within a modest training budget.
+> Settings fixed across all 10 of Edwin's runs (only changed for this environment's setup,
+> not per-experiment): `ENV_ID=ALE/Breakout-v5`, `N_ENVS=4`, `FRAME_STACK=4`,
+> `POLICY=CnnPolicy` (primary), `timesteps=150,000` per run, `buffer_size=50,000` with
+> `optimize_memory_usage=True` (keeps replay-buffer RAM manageable on 16GB laptops at
+> 84x84x4 uint8 frames). Only `lr`, `gamma`, `batch_size`, and the epsilon schedule vary
+> between the 10 experiments.
 
 ## Setup
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU-only wheel
 pip install -r requirements.txt
 ```
 
+Apple Silicon (M-series) note: PyTorch will try `mps` automatically via `--device auto`.
+If you hit an "operator not implemented for MPS" error, rerun with `--device cpu`.
+
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `train.py` | Trains a DQN agent; logs reward + episode length; saves best & final models |
-| `play.py` | Loads a trained model and plays greedily (`deterministic=True`), rendering gameplay |
-| `run_experiments.py` | Runs one member's 10 hyperparameter experiments in sequence |
-| `summarize_results.py` | Turns `experiments/results.csv` into a Markdown table |
-| `experiments/` | Per-member experiment logs, monitor CSVs, and `results.csv` |
-| `models/` | Saved models (submit your best as `models/dqn_model.zip`) |
+- `train.py` — trains the DQN agent, saves `models/dqn_model_<run-name>.zip` + a per-episode
+  reward/length CSV under `experiments/logs/`
+- `play.py` — loads a trained model and plays greedily (`deterministic=True`); `--mode record`
+  saves an `.mp4` (the required gameplay deliverable), `--mode human` opens a live window
+- `experiments/edwin_results.md` — Edwin's 10 hyperparameter experiments (config, hypothesis,
+  observed behavior)
+- `experiments/plot_results.py` — overlays reward-trend CSVs into a comparison chart
+- `experiments/logs/` — per-run CSV logs + generated comparison plots
+- `models/` — saved models
+- `RUN_INSTRUCTIONS_EDWIN.md` — step-by-step commands to reproduce Edwin's 10 runs locally
+- `PRESENTATION_NOTES_EDWIN.md` — talking points + Q&A prep for Edwin's 2-minute segment
 
 ## Usage
 
-**Single training run:**
+Train:
 ```bash
-python train.py --lr 1e-4 --gamma 0.99 --batch-size 32 --run-name alice_exp01
-```
-This writes:
-- `models/dqn_model_<run>.zip` (final) and `models/<run>/best_model.zip` (best during eval)
-- reward/episode-length CSVs under `experiments/monitor/<run>/`
-- a summary row in `experiments/results.csv`
-- TensorBoard logs under `tb_logs/` — view with `tensorboard --logdir tb_logs`
-
-**Run all 10 experiments** (edit `MEMBER` and the `EXPERIMENTS` list first):
-```bash
-python run_experiments.py --member alice --timesteps 200000
-python summarize_results.py --member alice     # prints a Markdown table
+python train.py --lr 1e-4 --gamma 0.99 --batch-size 32 --run-name edwin_exp01 --device auto
 ```
 
-**MLP vs CNN comparison** (same hyperparameters, different policy):
+Play with the trained model (record the submission video):
 ```bash
-python train.py --policy CnnPolicy --run-name cnn_baseline
-python train.py --policy MlpPolicy --run-name mlp_baseline
+python play.py --model models/dqn_model.zip --mode record --episodes 3
 ```
 
-**Watch the trained agent play** (greedy / GreedyQPolicy-equivalent):
+Play with a live window instead:
 ```bash
-cp models/<best-run>/best_model.zip models/dqn_model.zip   # promote your best model
-python play.py --model models/dqn_model.zip --episodes 3
+python play.py --model models/dqn_model.zip --mode human --episodes 3
 ```
 
 ## Policy Architecture: MLP vs CNN
 
-Atari observations are raw **84×84×4 stacked grayscale frames** (image data).
+One shared run (not one of the 10 individual experiments) compares `MlpPolicy` against
+`CnnPolicy` on the same Breakout setup, to have concrete evidence for Q&A:
 
-- **CnnPolicy** feeds these frames through convolutional layers (the classic DQN Nature
-  architecture). Convolutions share weights across the image and preserve spatial structure,
-  so the network can learn features like "the ball is here, the paddle is there" efficiently.
-- **MlpPolicy** first *flattens* the frames into a long vector, discarding spatial locality.
-  It must learn every pixel-position relationship independently, needing far more parameters
-  and data to reach the same understanding.
+```bash
+python train.py --policy MlpPolicy --run-name edwin_mlp_comparison --timesteps 150000 --device auto
+python train.py --policy CnnPolicy --run-name edwin_cnn_comparison --timesteps 150000 --device auto
+python experiments/plot_results.py --runs edwin_mlp_comparison edwin_cnn_comparison --out experiments/logs/mlp_vs_cnn.png
+```
 
-**Conclusion:** For pixel-based Atari, **CnnPolicy is the correct choice and clearly
-outperforms MlpPolicy** — the MLP learns slowly or plateaus near random play, while the CNN
-steadily improves. We therefore use `CnnPolicy` for all tuning experiments and only run MLP
-once as a documented baseline for comparison. _(Paste your two comparison numbers here after
-running the commands above.)_
+**Result:** `CnnPolicy` clearly outperformed `MlpPolicy` on Breakout at the same 150k-step
+budget — final rolling-mean reward 7.55 (peak 11.9) vs. MLP's 5.65 (peak 7.65). The gap shows
+up in episode count too: MLP needed 3,225 episodes to use its step budget vs. CNN's 2,092,
+meaning its average life was noticeably shorter (less effective ball tracking). This matches
+the theory: convolutional layers exploit the spatial structure of the 84×84×4 pixel stack
+(paddle/ball/brick shapes and relative position) directly, while `MlpPolicy` flattens the
+frame into an unordered vector and has to learn every pixel-position relationship from
+scratch, which is harder to do well in a modest training budget. Worth noting for Q&A: the
+gap is real but not catastrophic — MLP wasn't hopeless, it just consistently trailed CNN on
+every metric. See `experiments/logs/mlp_vs_cnn.png` for the overlaid reward curves.
 
 ## Hyperparameter Tuning Results (merged from all members)
 
-> Generate each member's block with `python summarize_results.py --member <name>` and paste
-> below, then add a short qualitative note per row in the "Noted behavior" column.
-
-| Member | Run | lr | gamma | batch | eps_start | eps_end | eps_decay | Best mean reward | Noted behavior |
-|--------|-----|----|-------|-------|-----------|---------|-----------|------------------|----------------|
-|        |     |    |       |       |           |         |           |                  |                |
-
-_(40 rows total — 10 per member.)_
+Edwin's full 10-experiment table, with a pre-run hypothesis and the actual observed behavior
+for every row, lives in [`experiments/edwin_results.md`](experiments/edwin_results.md). (This
+is combined with David's and Nziza's tables in the top-level repo README — see
+[`../README.md`](../README.md).)
 
 ## Final Chosen Configuration
 
-- **Member:** _TBD_
-- **Config:** `lr=…, gamma=…, batch_size=…, eps_start=…, eps_end=…, eps_decay_frac=…`
-- **Reasoning:** _Why this run gave the highest / most stable eval reward._
+- **Run:** exp10
+- **Config:** `lr=5e-4, gamma=0.99, batch_size=64, eps_start=1.0, eps_end=0.02, eps_decay_frac=0.15`
+- **Reasoning:** exp10 combined three individually-promising directions — a moderate LR bump
+  (validated safe by exp02), a larger batch size for smoother gradients (validated by exp07),
+  and a lower epsilon floor for decisive exploitation (validated by exp08 beating exp09). Final
+  rolling-mean reward 16.85, peak 20.9 — roughly double the baseline, and reached in the fewest
+  episodes of any run (most sample-efficient). Promoted to `models/dqn_model.zip`.
 
 ## Gameplay Demo
 
-_(Link or embed the video of `play.py` running with the final model here.)_
+[`videos/edwin_breakout_gameplay.mp4`](videos/edwin_breakout_gameplay.mp4) — 20 episodes,
+~27 seconds, recorded with `python play.py --model models/dqn_model.zip --mode record --episodes 20`
+using the promoted exp10 model. Fresh greedy evaluation over 10 episodes averaged reward 3.3
+(range 2-6, steps 24-55 per life) — lower than the 16.85 training-time rolling mean, because
+that mean was pulled up by rare long "rally" episodes (training's `max_episode_length` was
+1193 vs. a typical ~35-55). Most individual lives are short; occasionally the agent finds a
+sustained rhythm and racks up a much longer rally. This variance is expected at a 150k-step
+budget — published DQN Breakout benchmarks train for millions of steps to get consistently
+long rallies.
 
 ## Discussion
 
-Summarize across all experiments:
-- **What helped:** e.g. moderate learning rate (1e-4–5e-4), high gamma (0.99) for Pong's
-  delayed rewards, larger batch for more stable updates, enough exploration before decaying ε.
-- **What hurt:** e.g. too-high lr → divergence/instability; too-low gamma → short-sighted play;
-  too-fast ε decay → premature exploitation of a bad policy; too-small buffer → forgetting.
-- **Why the final model behaves as it does:** tie the winning config back to these effects.
+The clearest lesson from this sweep: hyperparameters that looked "risky" on paper (10x higher
+LR, 4x larger batch) turned out to help, not hurt, at this training budget — both beat the
+baseline individually, and combining them (exp10) compounded the gains rather than cancelling
+out. The one hypothesis that inverted was epsilon scheduling: a slower decay with a higher
+floor (exp09) performed *worse* than a fast decay (exp08), likely because sustained random
+actions (10% floor for the entire run) kept injecting noise that prevented the policy from
+stabilizing, rather than helping it explore into a better optimum. Full per-run reasoning is
+in `experiments/edwin_results.md`; reward-curve comparisons are in
+`experiments/logs/all_runs_comparison.png` and `experiments/logs/mlp_vs_cnn.png`.
+
+## Individual Contribution — Edwin Bayingana
+
+- Adapted the shared `train.py`/`play.py` skeleton to `ALE/Breakout-v5` (memory-safe replay
+  buffer settings, MPS device support, per-episode CSV logging, video-recording playback mode).
+- Designed and ran 10 hyperparameter experiments (OFAT sweep + 2 combined configs) — see
+  `experiments/edwin_results.md`.
+- Selected best-performing configuration and prepared the 2-minute presentation segment — see
+  `PRESENTATION_NOTES_EDWIN.md`.

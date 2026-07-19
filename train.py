@@ -1,48 +1,76 @@
 """
-train.py — DQN training for the Atari group project (Stable Baselines3 + Gymnasium).
+train.py — DQN training script for the Atari group project.
 
-Each member copies the CONFIG defaults or passes CLI flags for their own 10
-hyperparameter experiments. Every run logs:
-  - reward trends + episode length  -> TensorBoard AND a per-run CSV (Monitor)
-  - a periodic greedy evaluation     -> eval reward over training
-  - the best model seen during eval  -> models/<run-name>/best_model.zip
-  - the final model                  -> models/dqn_model_<run-name>.zip
-plus a one-line summary appended to experiments/results.csv so the whole group's
-runs collect into a single table.
+Environment: ALE/Breakout-v5 (group-agreed constant — do not change per-run).
+
+Everyone forks/copies this file for their own 10 hyperparameter experiments.
+Only the CLI args below (lr, gamma, batch-size, epsilon settings) should
+change between an individual member's runs — the constants in the
+"Group-agreed constants" block are locked so every member's results are
+directly comparable.
 
 Usage:
-    python train.py
-    python train.py --lr 5e-4 --gamma 0.98 --batch-size 64 --timesteps 300000 --run-name alice_exp02
-    python train.py --policy MlpPolicy --run-name mlp_vs_cnn   # architecture comparison
+    python train.py --run-name edwin_exp01
+    python train.py --lr 5e-4 --gamma 0.98 --batch-size 64 --run-name edwin_exp02
 """
 
 import argparse
 import csv
 import os
-from datetime import datetime
 
 import ale_py
 import gymnasium as gym
+
+gym.register_envs(ale_py)  # registers the ALE/* env ids with Gymnasium
+
 from stable_baselines3 import DQN
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_util import make_atari_env
 from stable_baselines3.common.vec_env import VecFrameStack
 
-# Register Atari (ALE/*) environments with Gymnasium (required by ale-py >= 0.10)
-gym.register_envs(ale_py)
-
 # --------------------------------------------------------------------------
 # Group-agreed constants — keep these the SAME across every member's runs
-# so results are comparable. Change ENV_ID once as a group, not per-member.
+# so results are comparable. Only change as a group, never per-member.
 # --------------------------------------------------------------------------
-ENV_ID = "ALE/Pong-v5"          # e.g. swap for ALE/Breakout-v5, ALE/SpaceInvaders-v5
+ENV_ID = "ALE/Breakout-v5"      # group-selected Atari environment
 N_ENVS = 4                      # parallel envs for faster data collection
-FRAME_STACK = 4                 # standard Atari frame stacking
-POLICY = "CnnPolicy"            # "CnnPolicy" (default for Atari) or "MlpPolicy" for comparison
-LOG_DIR = "./tb_logs"           # TensorBoard logs
-MODEL_DIR = "./models"          # saved models
-MONITOR_DIR = "./experiments/monitor"   # per-run reward/episode-length CSVs
-RESULTS_CSV = "./experiments/results.csv"   # one row per run, appended
+FRAME_STACK = 4                 # standard Atari frame stacking (lets the agent see motion)
+POLICY = "CnnPolicy"            # "CnnPolicy" (default for Atari) or "MlpPolicy" for the one shared comparison run
+LOG_DIR = "./tb_logs"
+MODEL_DIR = "./models"
+METRICS_DIR = "./experiments/logs"
+
+
+class EpisodeCSVLogger(BaseCallback):
+    """Writes one row per completed episode (across all vec envs) with the
+    reward and length, plus a rolling mean, so reward-trend/episode-length
+    plots can be built for the README without needing TensorBoard installed.
+    """
+
+    def __init__(self, csv_path, rolling_window=20, verbose=0):
+        super().__init__(verbose)
+        self.csv_path = csv_path
+        self.rolling_window = rolling_window
+        self._rewards = []
+        self._episode_count = 0
+
+    def _on_training_start(self):
+        os.makedirs(os.path.dirname(self.csv_path), exist_ok=True)
+        with open(self.csv_path, "w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["episode", "timestep", "reward", "length", f"rolling_mean_reward_{self.rolling_window}"])
+
+    def _on_step(self) -> bool:
+        for info in self.locals.get("infos", []):
+            ep_info = info.get("episode")
+            if ep_info is not None:
+                self._episode_count += 1
+                self._rewards.append(ep_info["r"])
+                rolling_mean = sum(self._rewards[-self.rolling_window:]) / min(len(self._rewards), self.rolling_window)
+                with open(self.csv_path, "a", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow([self._episode_count, self.num_timesteps, ep_info["r"], ep_info["l"], round(rolling_mean, 3)])
+        return True
 
 
 def parse_args():
@@ -53,59 +81,30 @@ def parse_args():
     parser.add_argument("--eps-start", type=float, default=1.0, help="Initial epsilon (exploration_initial_eps)")
     parser.add_argument("--eps-end", type=float, default=0.05, help="Final epsilon (exploration_final_eps)")
     parser.add_argument("--eps-decay-frac", type=float, default=0.1, help="Fraction of training over which epsilon decays (exploration_fraction)")
-    parser.add_argument("--timesteps", type=int, default=200_000, help="Total training timesteps")
-    parser.add_argument("--buffer-size", type=int, default=100_000, help="Replay buffer size (lower if you hit memory limits, e.g. 50000)")
-    parser.add_argument("--learning-starts", type=int, default=10_000, help="Steps of random play before learning begins")
-    parser.add_argument("--target-update", type=int, default=1000, help="Target network update interval")
-    parser.add_argument("--train-freq", type=int, default=4, help="Environment steps between gradient updates")
-    parser.add_argument("--eval-freq", type=int, default=25_000, help="Steps between greedy evaluations (per env)")
-    parser.add_argument("--eval-episodes", type=int, default=5, help="Episodes per evaluation")
+    parser.add_argument("--timesteps", type=int, default=150_000, help="Total training timesteps")
+    parser.add_argument("--buffer-size", type=int, default=50_000, help="Replay buffer size (kept modest to fit 16GB RAM machines)")
     parser.add_argument("--policy", type=str, default=POLICY, choices=["CnnPolicy", "MlpPolicy"], help="Policy network type")
+    parser.add_argument("--run-name", type=str, default="run", help="Name used for logs/model file, e.g. 'edwin_exp03'")
     parser.add_argument("--seed", type=int, default=0, help="Random seed")
-    parser.add_argument("--run-name", type=str, default="run", help="Name used for logs/model file, e.g. 'alice_exp03'")
+    parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "mps", "cuda"],
+                         help="'auto' picks MPS on Apple Silicon if available; use 'cpu' if you hit MPS op-support errors")
     return parser.parse_args()
 
 
-def make_env(seed, monitor_dir=None):
-    """Vectorized, frame-stacked Atari env. make_atari_env wraps each sub-env in
-    a Monitor, so episode reward + length are recorded to CSV when monitor_dir is set."""
-    env = make_atari_env(ENV_ID, n_envs=N_ENVS, seed=seed, monitor_dir=monitor_dir)
+def make_env(seed=0):
+    """Build a vectorized, frame-stacked Atari environment."""
+    env = make_atari_env(ENV_ID, n_envs=N_ENVS, seed=seed)
     env = VecFrameStack(env, n_stack=FRAME_STACK)
     return env
 
 
-def append_results_row(args, best_mean, final_path, best_path):
-    """Append a one-line summary of this run to experiments/results.csv."""
-    header = [
-        "timestamp", "run_name", "policy", "env", "timesteps",
-        "lr", "gamma", "batch_size", "eps_start", "eps_end", "eps_decay_frac",
-        "best_mean_reward", "final_model", "best_model",
-    ]
-    row = [
-        datetime.now().strftime("%Y-%m-%d %H:%M"), args.run_name, args.policy, ENV_ID, args.timesteps,
-        args.lr, args.gamma, args.batch_size, args.eps_start, args.eps_end, args.eps_decay_frac,
-        f"{best_mean:.2f}" if best_mean is not None else "n/a", final_path, best_path,
-    ]
-    write_header = not os.path.exists(RESULTS_CSV)
-    with open(RESULTS_CSV, "a", newline="") as f:
-        w = csv.writer(f)
-        if write_header:
-            w.writerow(header)
-        w.writerow(row)
-
-
 def main():
     args = parse_args()
-    for d in (MODEL_DIR, LOG_DIR, MONITOR_DIR):
-        os.makedirs(d, exist_ok=True)
-    run_monitor_dir = os.path.join(MONITOR_DIR, args.run_name)
-    best_model_dir = os.path.join(MODEL_DIR, args.run_name)
-    os.makedirs(best_model_dir, exist_ok=True)
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    os.makedirs(LOG_DIR, exist_ok=True)
+    os.makedirs(METRICS_DIR, exist_ok=True)
 
-    # Training env (logs episode reward + length to per-run monitor CSVs)
-    env = make_env(args.seed, monitor_dir=run_monitor_dir)
-    # Separate eval env (different seed) for unbiased greedy evaluation
-    eval_env = make_env(args.seed + 100)
+    env = make_env(seed=args.seed)
 
     model = DQN(
         policy=args.policy,
@@ -117,50 +116,39 @@ def main():
         exploration_final_eps=args.eps_end,
         exploration_fraction=args.eps_decay_frac,
         buffer_size=args.buffer_size,
-        learning_starts=args.learning_starts,
-        train_freq=args.train_freq,
-        target_update_interval=args.target_update,
-        seed=args.seed,
+        optimize_memory_usage=True,          # halves replay buffer RAM (needed at 84x84x4 uint8 frames)
+        replay_buffer_kwargs=dict(handle_timeout_termination=False),  # required when optimize_memory_usage=True
+        learning_starts=10_000,
+        train_freq=4,
+        target_update_interval=1000,
         verbose=1,
+        seed=args.seed,
+        device=args.device,
         tensorboard_log=LOG_DIR,
     )
 
-    # EvalCallback runs a greedy (deterministic) evaluation every eval_freq steps,
-    # logs mean reward to TensorBoard, and saves the best model automatically.
-    # eval_freq is per-env, so divide by N_ENVS to get the intended global cadence.
-    eval_callback = EvalCallback(
-        eval_env,
-        best_model_save_path=best_model_dir,
-        log_path=best_model_dir,
-        eval_freq=max(args.eval_freq // N_ENVS, 1),
-        n_eval_episodes=args.eval_episodes,
-        deterministic=True,
-        render=False,
-    )
+    csv_path = os.path.join(METRICS_DIR, f"{args.run_name}.csv")
+    callback = EpisodeCSVLogger(csv_path)
 
     print(f"Training config: {vars(args)}")
     model.learn(
         total_timesteps=args.timesteps,
         tb_log_name=args.run_name,
-        callback=eval_callback,
+        callback=callback,
         progress_bar=True,
     )
 
-    final_path = os.path.join(MODEL_DIR, f"dqn_model_{args.run_name}.zip")
-    model.save(final_path)
-    best_path = os.path.join(best_model_dir, "best_model.zip")
-    best_mean = getattr(eval_callback, "best_mean_reward", None)
+    save_path = os.path.join(MODEL_DIR, f"dqn_model_{args.run_name}.zip")
+    model.save(save_path)
+    print(f"Saved model to {save_path}")
+    print(f"Per-episode reward/length log saved to {csv_path}")
 
-    append_results_row(args, best_mean, final_path, best_path)
-    print(f"\nSaved final model to {final_path}")
-    if os.path.exists(best_path):
-        print(f"Best eval model at   {best_path} (best mean reward: {best_mean:.2f})")
-    print(f"Per-run reward/length logs: {run_monitor_dir}/  |  summary row -> {RESULTS_CSV}")
-    print("\nTip: once you pick your best run, copy its model to models/dqn_model.zip for play.py:")
-    print(f"    cp {best_path} models/dqn_model.zip")
+    # Once you've decided this run is your best, copy/save it as the
+    # canonical file play.py defaults to — do this manually so you don't
+    # overwrite a better earlier run by accident:
+    #   cp models/dqn_model_<run-name>.zip models/dqn_model.zip
 
     env.close()
-    eval_env.close()
 
 
 if __name__ == "__main__":
