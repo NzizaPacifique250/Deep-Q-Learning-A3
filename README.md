@@ -15,11 +15,12 @@ deadline. Disclosed here for transparency going into Q&A:
 | Member | Environment | Best config | Result |
 |--------|-------------|--------------|--------|
 | Edwin Bayingana | `ALE/Breakout-v5` | `lr=5e-4, gamma=0.99, batch=64, eps_end=0.02, decay=0.15` | reward 16.85 (peak 20.9) |
-| David (Yinka) Ajao | `ALE/SpaceInvaders-v5` | `lr=5e-4, gamma=0.99, batch=64, eps_end=0.02, decay=0.15`* | reward 286.55* |
+| David (Yinka) Ajao | `ALE/SpaceInvaders-v5` | `lr=1e-4, gamma=0.99, batch=32, eps_end=0.10, decay=0.30`* | reward 219.95* |
 | Nziza Aime Pacifique | `ALE/Pong-v5` | `lr=1e-4, gamma=0.99, batch=128` | eval reward -20.20 |
 
-*David's numerically-best run is exp10, but the model currently promoted in this repo is
-exp09 (reward 219.95) — see `experiments/results.md` for the open item to resolve.
+*David's promoted model is exp09 (reward 219.95). His own logs show exp10 scoring higher
+(286.55, config `lr=5e-4, gamma=0.99, batch=64, eps_end=0.02, decay=0.15`) — this discrepancy
+is unresolved; see `experiments/results.md` for detail and be ready to address it in Q&A.
 
 If asked in Q&A "why three different games": the honest answer is a coordination gap on
 environment selection, caught after training was already complete. What each member
@@ -45,8 +46,6 @@ Deep-Q-Learning-A3/
 ├── train.py                      shared training script (--env-id required)
 ├── play.py                       shared playback/recording script (--env-id required)
 ├── requirements.txt
-├── RUN_INSTRUCTIONS.md           setup + exact commands to reproduce every run
-├── PRESENTATION_NOTES.md         Q&A prep, one section per member
 ├── experiments/
 │   ├── results.md                 merged 30-run hyperparameter table + cross-member analysis
 │   ├── plot_results.py            overlay reward-trend CSVs into a comparison chart
@@ -59,7 +58,7 @@ Deep-Q-Learning-A3/
 └── videos/
     ├── edwin_breakout_gameplay.mp4
     ├── david_spaceinvaders_gameplay.mp4
-    └── nziza_pong_gameplay.mp4        (outstanding — see Submission Checklist)
+    └── nziza_pong_gameplay.mp4
 ```
 
 ## Usage
@@ -69,22 +68,23 @@ Train:
 python train.py --env-id ALE/Breakout-v5 --lr 5e-4 --gamma 0.99 --batch-size 64 --eps-end 0.02 --eps-decay-frac 0.15 --run-name edwin_exp10 --device auto
 ```
 
-Watch a trained agent play and record the submission video:
+Watch a trained agent play and record a gameplay video:
 ```bash
 python play.py --env-id ALE/Breakout-v5 --model models/dqn_model_edwin_breakout.zip --mode record --episodes 3
 python play.py --env-id ALE/SpaceInvaders-v5 --model models/dqn_model_david_spaceinvaders.zip --mode record --episodes 3
 python play.py --env-id ALE/Pong-v5 --model models/dqn_model_nziza_pong.zip --mode record --episodes 3
 ```
 
-Full per-member commands (all 30 experiments, exact hyperparameters) are in
-[`RUN_INSTRUCTIONS.md`](RUN_INSTRUCTIONS.md).
+Every hyperparameter value used for all 30 runs (10 per member) is documented in
+[`experiments/results.md`](experiments/results.md), which is also what to use to reproduce any
+individual run via `train.py`.
 
 ## Policy Architecture: MLP vs CNN
 
 Summary table and full discussion in [`experiments/results.md`](experiments/results.md#policy-architecture-mlp-vs-cnn).
 Short version: CNN clearly beat MLP on Breakout (the textbook result), the two were
 comparable on SpaceInvaders (a genuine, environment-dependent nuance worth raising in Q&A),
-and the comparison was never run for Pong.
+and the comparison was not run for Pong.
 
 ## Hyperparameter Tuning Results
 
@@ -113,22 +113,19 @@ experiment is in `experiments/results.md`.
 - **Nziza Aime Pacifique:** authored the original shared skeleton this group's `train.py`/
   `play.py` were built from (`EvalCallback` best-model tracking, `results.csv` auto-logging),
   ran 10 hyperparameter experiments on Pong, documented an honest negative result rather than
-  overstating the outcome.
+  overstating the outcome, recorded the gameplay video.
 
-## Submission Checklist
+## Known gaps
 
-- [x] `train.py` and `play.py` — single shared scripts, `--env-id` selects the environment
-- [x] Merged hyperparameter table, 30 documented experiments across 3 environments
-- [x] Each member's best model in `models/`
-- [x] Edwin's and David's gameplay videos in `videos/`
-- [ ] **Nziza's gameplay video** — outstanding, she's sending it separately. Run
-      `python play.py --env-id ALE/Pong-v5 --model models/dqn_model_nziza_pong.zip --mode record --episodes 3`
-      and add the `.mp4` to `videos/` once available.
-- [ ] **David: resolve the exp09-vs-exp10 champion discrepancy** (see `experiments/results.md`).
-- [ ] **Nziza's MLP vs CNN comparison** — not yet executed.
-- [ ] **Coach booking sheet** — copy the assignment's Google Sheet, fill it, save as PDF, add to this repo. Every group must book a Week 6 slot.
-- [ ] Rehearse the 10-minute presentation using `PRESENTATION_NOTES.md`.
-- [ ] Zip the repo (Attempt 1) or confirm the pushed repo URL (Attempt 2).
+Being upfront about what this repo does not yet include, rather than leaving it to be
+discovered:
+
+- **David's promoted model (exp09) isn't his best-scoring run (exp10).** Explain this in the
+  presentation, or re-promote exp10 before submitting — see `experiments/results.md`.
+- **Nziza's MLP vs CNN comparison was never run** — the assignment's explicit
+  "compare MLPPolicy and CNNPolicy" requirement only has real data for two of three members.
+- **Coach booking sheet** (copy the assignment's Google Sheet, fill it, save as PDF, add to
+  the repo) is not in this repo.
 
 ## Branches
 
