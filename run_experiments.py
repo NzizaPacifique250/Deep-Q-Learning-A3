@@ -4,49 +4,36 @@ run_experiments.py — run one member's 10 hyperparameter experiments in sequenc
 Each experiment is a distinct combination of (lr, gamma, batch_size, eps_*),
 trained by calling train.py as a subprocess so every run gets its own logs,
 monitor CSVs, best model, and a summary row in experiments/results.csv.
-
-Edit MEMBER and the EXPERIMENTS list below for your own sweep, then:
-
-    python run_experiments.py                 # run all 10
-    python run_experiments.py --only 1 2 3    # run just experiments 1,2,3
-    python run_experiments.py --timesteps 100000   # override length for a faster pass
-
-The 10 combos below are a sensible starting sweep for Pong: they vary ONE knob
-at a time from a baseline so the "noted behavior" is attributable. Change the
-values to explore your own hypotheses — the assignment wants YOUR reasoning.
 """
 
 import argparse
 import subprocess
 import sys
 
-MEMBER = "member"   # <-- change to your name/initials, e.g. "alice"
+MEMBER = "Yinka_Ajao"
 
-# Baseline is exp 1; each later row changes one thing (mostly) vs the baseline.
+# Aligned with Edwin's sweep layout: modifying ONE variable at a time from baseline
 EXPERIMENTS = [
     # id,  lr,     gamma, batch, eps_start, eps_end, eps_decay_frac
-    (1,  1e-4,  0.99,  32,   1.0,  0.05, 0.10),   # baseline
-    (2,  5e-4,  0.99,  32,   1.0,  0.05, 0.10),   # higher lr
-    (3,  5e-5,  0.99,  32,   1.0,  0.05, 0.10),   # lower lr
-    (4,  1e-4,  0.95,  32,   1.0,  0.05, 0.10),   # shorter horizon (low gamma)
-    (5,  1e-4,  0.999, 32,   1.0,  0.05, 0.10),   # longer horizon (high gamma)
-    (6,  1e-4,  0.99,  64,   1.0,  0.05, 0.10),   # larger batch
-    (7,  1e-4,  0.99,  128,  1.0,  0.05, 0.10),   # largest batch
-    (8,  1e-4,  0.99,  32,   1.0,  0.01, 0.10),   # exploit more (low final eps)
-    (9,  1e-4,  0.99,  32,   1.0,  0.10, 0.30),   # explore longer (slower decay)
-    (10, 5e-4,  0.99,  64,   1.0,  0.02, 0.20),   # combined "best guess" config
+    (1,  1e-4,  0.99,  32,   1.0,  0.05, 0.10),   # Baseline config
+    (2,  1e-3,  0.99,  32,   1.0,  0.05, 0.10),   # Higher learning rate
+    (3,  1e-5,  0.99,  32,   1.0,  0.05, 0.10),   # Lower learning rate
+    (4,  1e-4,  0.90,  32,   1.0,  0.05, 0.10),   # Shorter horizon (low gamma)
+    (5,  1e-4,  0.995, 32,   1.0,  0.05, 0.10),   # Longer horizon (high gamma)
+    (6,  1e-4,  0.99,  16,   1.0,  0.05, 0.10),   # Smaller batch size
+    (7,  1e-4,  0.99,  128,  1.0,  0.05, 0.10),   # Larger batch size
+    (8,  1e-4,  0.99,  32,   1.0,  0.05, 0.02),   # Rapid epsilon decay
+    (9,  1e-4,  0.99,  32,   1.0,  0.10, 0.30),   # Prolonged exploration
+    (10, 5e-4,  0.99,  64,   1.0,  0.02, 0.15),   # Combined optimal guess config
 ]
-
 
 def parse_args():
     p = argparse.ArgumentParser(description="Run a member's 10 DQN hyperparameter experiments.")
     p.add_argument("--member", type=str, default=MEMBER, help="Member name used in run-name prefix")
-    p.add_argument("--timesteps", type=int, default=200_000, help="Timesteps per experiment")
+    p.add_argument("--timesteps", type=int, default=150_000, help="Timesteps per experiment")
     p.add_argument("--policy", type=str, default="CnnPolicy", choices=["CnnPolicy", "MlpPolicy"])
     p.add_argument("--only", type=int, nargs="*", default=None, help="Only run these experiment ids")
-    p.add_argument("--buffer-size", type=int, default=100_000)
     return p.parse_args()
-
 
 def main():
     args = parse_args()
@@ -66,7 +53,6 @@ def main():
             "--eps-decay-frac", str(ed),
             "--timesteps", str(args.timesteps),
             "--policy", args.policy,
-            "--buffer-size", str(args.buffer_size),
             "--run-name", run_name,
         ]
         print("=" * 70)
@@ -77,9 +63,7 @@ def main():
         if result.returncode != 0:
             print(f"!! Experiment {eid} failed (exit {result.returncode}). Continuing.\n")
 
-    print("\nAll requested experiments finished. See experiments/results.csv for the table.")
-    print("Then run:  python summarize_results.py   to build a Markdown table for the README.")
-
+    print("\nAll requested experiments finished.")
 
 if __name__ == "__main__":
     main()
