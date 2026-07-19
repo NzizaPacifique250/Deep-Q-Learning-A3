@@ -1,18 +1,23 @@
 # Python
 .venv/
+venv/
 __pycache__/
 *.pyc
 
-# Training artifacts (keep the repo light; commit only your BEST model)
+# Training scaffolding (regenerable, keep the repo light)
 tb_logs/
 experiments/monitor/
-# Per-run best-model folders and final models
-models/*/
-models/dqn_model_*.zip
+run_log.txt
 
-# Keep the canonical submission model and the results table
-!models/dqn_model.zip
-!experiments/results.csv
+# Per-experiment checkpoint dumps (10+ per member) — only the 3 canonical,
+# member-named models below are committed, not every intermediate checkpoint
+models/dqn_model_*_exp*.zip
+models/dqn_model_smoketest.zip
+models/dqn_model_*_comparison.zip
+
+# Everything else in experiments/ (per-episode CSVs, plots, the merged
+# results table) and the 3 canonical models ARE committed — they're small
+# and are the actual evidence behind experiments/results.md.
 
 # OS
 .DS_Store

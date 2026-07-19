@@ -1,117 +1,136 @@
-# DQN Atari Agent — Group Project
+# Deep Q-Learning — Group Formative 3
 
-Training and evaluating a **DQN** agent (Stable Baselines3 + Gymnasium) on **`ALE/Pong-v5`**.
+DQN agents trained with Stable Baselines3 + Gymnasium/ALE, evaluated with greedy
+(`deterministic=True`) playback. `train.py` and `play.py` are shared, single implementations
+used by all three members — `--env-id` selects which Atari environment to train or play.
 
-Pong is chosen for its clear, dense-ish reward signal (+1 when the agent scores, −1 when it
-concedes; episode score ranges from −21 to +21) and relatively fast learning, which makes
-hyperparameter effects visible within a modest training budget.
+## Environments
+
+**Each member trained on a different Atari game.** The assignment's presentation flow assumes
+one shared environment, and this group's own pre-planning doc flagged that risk before anyone
+started — but by the time it was caught, all three members had already completed full
+10-experiment sweeps on different games, and redoing them wasn't realistic before the
+deadline. Disclosed here for transparency going into Q&A:
+
+| Member | Environment | Best config | Result |
+|--------|-------------|--------------|--------|
+| Edwin Bayingana | `ALE/Breakout-v5` | `lr=5e-4, gamma=0.99, batch=64, eps_end=0.02, decay=0.15` | reward 16.85 (peak 20.9) |
+| David (Yinka) Ajao | `ALE/SpaceInvaders-v5` | `lr=5e-4, gamma=0.99, batch=64, eps_end=0.02, decay=0.15`* | reward 286.55* |
+| Nziza Aime Pacifique | `ALE/Pong-v5` | `lr=1e-4, gamma=0.99, batch=128` | eval reward -20.20 |
+
+*David's numerically-best run is exp10, but the model currently promoted in this repo is
+exp09 (reward 219.95) — see `experiments/results.md` for the open item to resolve.
+
+If asked in Q&A "why three different games": the honest answer is a coordination gap on
+environment selection, caught after training was already complete. What each member
+individually delivered — 10 documented hyperparameter experiments, a shared `train.py`/
+`play.py`, and a gameplay video — meets the assignment's requirements per-member even though
+cross-member environment consistency does not. Each member's individual, unmerged work is
+also preserved on its own branch (`edwin`, `david`, `nziza`) for reference.
 
 ## Setup
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install torch --index-url https://download.pytorch.org/whl/cpu   # CPU-only wheel
 pip install -r requirements.txt
 ```
 
+Apple Silicon (M-series): `--device auto` picks up `mps` automatically; fall back to
+`--device cpu` if you hit an "operator not implemented for MPS" error. Colab/GPU boxes: pass
+`--device cuda` explicitly.
+
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `train.py` | Trains a DQN agent; logs reward + episode length; saves best & final models |
-| `play.py` | Loads a trained model and plays greedily (`deterministic=True`), rendering gameplay |
-| `run_experiments.py` | Runs one member's 10 hyperparameter experiments in sequence |
-| `summarize_results.py` | Turns `experiments/results.csv` into a Markdown table |
-| `experiments/` | Per-member experiment logs, monitor CSVs, and `results.csv` |
-| `models/` | Saved models (submit your best as `models/dqn_model.zip`) |
+```
+Deep-Q-Learning-A3/
+├── train.py                      shared training script (--env-id required)
+├── play.py                       shared playback/recording script (--env-id required)
+├── requirements.txt
+├── RUN_INSTRUCTIONS.md           setup + exact commands to reproduce every run
+├── PRESENTATION_NOTES.md         Q&A prep, one section per member
+├── experiments/
+│   ├── results.md                 merged 30-run hyperparameter table + cross-member analysis
+│   ├── plot_results.py            overlay reward-trend CSVs into a comparison chart
+│   ├── summarize_results.py       print final/peak reward per run from a CSV log
+│   └── logs/                      per-run CSVs, TensorBoard-derived numbers, comparison plots
+├── models/
+│   ├── dqn_model_edwin_breakout.zip
+│   ├── dqn_model_david_spaceinvaders.zip
+│   └── dqn_model_nziza_pong.zip
+└── videos/
+    ├── edwin_breakout_gameplay.mp4
+    ├── david_spaceinvaders_gameplay.mp4
+    └── nziza_pong_gameplay.mp4        (outstanding — see Submission Checklist)
+```
 
 ## Usage
 
-**Single training run:**
+Train:
 ```bash
-python train.py --lr 1e-4 --gamma 0.99 --batch-size 32 --run-name alice_exp01
-```
-This writes:
-- `models/dqn_model_<run>.zip` (final) and `models/<run>/best_model.zip` (best during eval)
-- reward/episode-length CSVs under `experiments/monitor/<run>/`
-- a summary row in `experiments/results.csv`
-- TensorBoard logs under `tb_logs/` — view with `tensorboard --logdir tb_logs`
-
-**Run all 10 experiments** (edit `MEMBER` and the `EXPERIMENTS` list first):
-```bash
-python run_experiments.py --member alice --timesteps 200000
-python summarize_results.py --member alice     # prints a Markdown table
+python train.py --env-id ALE/Breakout-v5 --lr 5e-4 --gamma 0.99 --batch-size 64 --eps-end 0.02 --eps-decay-frac 0.15 --run-name edwin_exp10 --device auto
 ```
 
-**MLP vs CNN comparison** (same hyperparameters, different policy):
+Watch a trained agent play and record the submission video:
 ```bash
-python train.py --policy CnnPolicy --run-name cnn_baseline
-python train.py --policy MlpPolicy --run-name mlp_baseline
+python play.py --env-id ALE/Breakout-v5 --model models/dqn_model_edwin_breakout.zip --mode record --episodes 3
+python play.py --env-id ALE/SpaceInvaders-v5 --model models/dqn_model_david_spaceinvaders.zip --mode record --episodes 3
+python play.py --env-id ALE/Pong-v5 --model models/dqn_model_nziza_pong.zip --mode record --episodes 3
 ```
 
-**Watch the trained agent play** (greedy / GreedyQPolicy-equivalent):
-```bash
-cp models/<best-run>/best_model.zip models/dqn_model.zip   # promote your best model
-python play.py --model models/dqn_model.zip --episodes 3
-```
+Full per-member commands (all 30 experiments, exact hyperparameters) are in
+[`RUN_INSTRUCTIONS.md`](RUN_INSTRUCTIONS.md).
 
 ## Policy Architecture: MLP vs CNN
 
-Atari observations are raw **84×84×4 stacked grayscale frames** (image data).
+Summary table and full discussion in [`experiments/results.md`](experiments/results.md#policy-architecture-mlp-vs-cnn).
+Short version: CNN clearly beat MLP on Breakout (the textbook result), the two were
+comparable on SpaceInvaders (a genuine, environment-dependent nuance worth raising in Q&A),
+and the comparison was never run for Pong.
 
-- **CnnPolicy** feeds these frames through convolutional layers (the classic DQN Nature
-  architecture). Convolutions share weights across the image and preserve spatial structure,
-  so the network can learn features like "the ball is here, the paddle is there" efficiently.
-- **MlpPolicy** first *flattens* the frames into a long vector, discarding spatial locality.
-  It must learn every pixel-position relationship independently, needing far more parameters
-  and data to reach the same understanding.
+## Hyperparameter Tuning Results
 
-**Conclusion:** `CnnPolicy` preserves the spatial structure of Atari frames and is therefore
-used for all tuning experiments. `MlpPolicy` remains available as an optional architecture
-baseline.
-
-## Hyperparameter Tuning Results (merged from all members)
-
-| Member | Run | lr | gamma | batch | eps_start | eps_end | eps_decay | Best mean reward | Noted behavior |
-|--------|-----|----|-------|-------|-----------|---------|-----------|------------------|----------------|
-| Nzizapacifique250 | exp01 | 1e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | -21.00 | Baseline stayed at the minimum evaluation score. |
-| Nzizapacifique250 | exp02 | 5e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | Higher learning rate did not improve evaluation. |
-| Nzizapacifique250 | exp03 | 5e-5 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | Lower learning rate also stayed at -21.00. |
-| Nzizapacifique250 | exp04 | 1e-4 | 0.95 | 32 | 1.0 | 0.05 | 0.10 | Shorter reward horizon produced no measurable gain. |
-| Nzizapacifique250 | exp05 | 1e-4 | 0.999 | 32 | 1.0 | 0.05 | 0.10 | Longer reward horizon produced no measurable gain. |
-| Nzizapacifique250 | exp06 | 1e-4 | 0.99 | 64 | 1.0 | 0.05 | 0.10 | First measurable improvement; peaked at -20.60. |
-| Nzizapacifique250 | exp07 | 1e-4 | 0.99 | 128 | 1.0 | 0.05 | 0.10 | Best run; improved after 125k steps and peaked at -20.20. |
-| Nzizapacifique250 | exp08 | 1e-4 | 0.99 | 32 | 1.0 | 0.01 | 0.10 | Faster exploitation did not improve evaluation. |
-| Nzizapacifique250 | exp09 | 1e-4 | 0.99 | 32 | 1.0 | 0.10 | 0.30 | Longer exploration did not improve within 200k steps. |
-| Nzizapacifique250 | exp10 | 5e-4 | 0.99 | 64 | 1.0 | 0.02 | 0.20 | Combined configuration stayed at -21.00. |
-
-_(10 Nzizapacifique250 rows completed; other members can append their results.)_
-
-## Final Chosen Configuration
-
-- **Member:** Nzizapacifique250
-- **Run:** `nzizapacifique250_exp07`
-- **Config:** `lr=1e-4, gamma=0.99, batch_size=128, eps_start=1.0, eps_end=0.05, eps_decay_frac=0.10`
-- **Best mean reward:** `-20.20`
-- **Reasoning:** This was the strongest greedy evaluation result in the sweep. It began
-  improving after 125,000 steps and outperformed the next-best batch-64 run (`-20.60`). Its
-  best checkpoint is promoted to `models/dqn_model.zip`.
-
-## Gameplay Evaluation
-
-Run the promoted model headlessly with:
-
-```bash
-python play.py --model models/dqn_model.zip --episodes 3 --no-render
-```
+Full merged table (30 runs, all three environments, each with a noted-behavior explanation)
+plus cross-member insights: [`experiments/results.md`](experiments/results.md).
 
 ## Discussion
 
-- **What helped:** Increasing the batch size was the only tested change that produced a
-  measurable greedy-evaluation improvement. Batch 64 reached `-20.60`, while batch 128 reached
-  `-20.20`.
-- **What did not help within this budget:** Changing learning rate, gamma, final epsilon, or
-  exploration decay left the best mean evaluation at `-21.00` in these single-seed runs.
-- **Interpretation:** The winning model is still close to the minimum Pong score, so 200,000
-  timesteps were enough to compare early learning behavior but not enough to produce a strong
-  player. More timesteps and multiple seeds are needed before making a robust general claim.
+The clearest cross-cutting lesson: hyperparameter effects don't generalize across
+environments by default. Batch size 128 was one of the best changes on Breakout and the worst
+on SpaceInvaders. Learning rate was more forgiving than expected on both Breakout and
+SpaceInvaders (10x higher helped, not hurt) but irrelevant on Pong, where nothing moved the
+needle — pointing at training budget, not hyperparameters, as Pong's real bottleneck. Combined
+"best guess" configurations won for two of three members, suggesting individually-validated
+improvements compounded rather than conflicted when stacked together. Full reasoning per
+experiment is in `experiments/results.md`.
+
+## Individual Contribution
+
+- **Edwin Bayingana:** built and debugged the shared `train.py`/`play.py` (memory-safe replay
+  buffer, MPS device support, per-episode CSV logging, video-recording playback with the
+  reset-per-episode bug fixed), ran all 10 Breakout experiments + the MLP/CNN comparison,
+  merged all three members' individual work into this unified repo structure.
+- **David (Yinka) Ajao:** adapted the skeleton to SpaceInvaders with GPU training, ran 10
+  hyperparameter experiments plus 2 MLP-vs-CNN comparison runs, recorded the gameplay video.
+- **Nziza Aime Pacifique:** authored the original shared skeleton this group's `train.py`/
+  `play.py` were built from (`EvalCallback` best-model tracking, `results.csv` auto-logging),
+  ran 10 hyperparameter experiments on Pong, documented an honest negative result rather than
+  overstating the outcome.
+
+## Submission Checklist
+
+- [x] `train.py` and `play.py` — single shared scripts, `--env-id` selects the environment
+- [x] Merged hyperparameter table, 30 documented experiments across 3 environments
+- [x] Each member's best model in `models/`
+- [x] Edwin's and David's gameplay videos in `videos/`
+- [ ] **Nziza's gameplay video** — outstanding, she's sending it separately. Run
+      `python play.py --env-id ALE/Pong-v5 --model models/dqn_model_nziza_pong.zip --mode record --episodes 3`
+      and add the `.mp4` to `videos/` once available.
+- [ ] **David: resolve the exp09-vs-exp10 champion discrepancy** (see `experiments/results.md`).
+- [ ] **Nziza's MLP vs CNN comparison** — not yet executed.
+- [ ] **Coach booking sheet** — copy the assignment's Google Sheet, fill it, save as PDF, add to this repo. Every group must book a Week 6 slot.
+- [ ] Rehearse the 10-minute presentation using `PRESENTATION_NOTES.md`.
+- [ ] Zip the repo (Attempt 1) or confirm the pushed repo URL (Attempt 2).
+
+## Branches
+
+Each member's original, individual (pre-merge) work is preserved on its own branch for
+reference: `edwin`, `david`, `nziza`. `main` is the unified, submission-ready version.
