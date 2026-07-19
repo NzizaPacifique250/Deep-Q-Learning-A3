@@ -149,3 +149,7 @@ Full per-experiment reasoning and detail: [`experiments/results.md`](experiments
 
 Each member's original, individual (pre-merge) work is preserved on its own branch for
 reference: `edwin`, `david`, `nziza`. `main` is the unified, submission-ready version.
+
+## Team Collaboration Sheet
+
+[Group 14 Team Task Sheet](https://docs.google.com/spreadsheets/d/1TuxFIi9afIKp9-nqp52lZumWjsWUHYrd/edit?usp=sharing&ouid=107439525985311710280&rtpof=true&sd=true)
