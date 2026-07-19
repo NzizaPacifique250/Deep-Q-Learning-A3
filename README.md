@@ -8,7 +8,7 @@ used by all three members — `--env-id` selects which Atari environment to trai
 
 **Each member trained on a different Atari game.** The assignment's presentation flow assumes
 one shared environment, and this group's own pre-planning doc flagged that risk before anyone
-started — but by the time it was caught, all three members had already completed full
+started...but by the time it was caught, all three members had already completed full
 10-experiment sweeps on different games, and redoing them wasn't realistic before the
 deadline. Disclosed here for transparency going into Q&A:
 
@@ -19,13 +19,13 @@ deadline. Disclosed here for transparency going into Q&A:
 | Nziza Aime Pacifique | `ALE/Pong-v5`          | `lr=1e-4, gamma=0.99, batch=128`                            | eval reward -20.20       |
 
 \*David's promoted model is exp09 (reward 219.95). His own logs show exp10 scoring higher
-(286.55, config `lr=5e-4, gamma=0.99, batch=64, eps_end=0.02, decay=0.15`) — this discrepancy
+(286.55, config `lr=5e-4, gamma=0.99, batch=64, eps_end=0.02, decay=0.15`)...this discrepancy
 is unresolved; see `experiments/results.md` for detail and be ready to address it in Q&A.
 
 If asked in Q&A "why three different games": the honest answer is a coordination gap on
 environment selection, caught after training was already complete. What each member
-individually delivered — 10 documented hyperparameter experiments, a shared `train.py`/
-`play.py`, and a gameplay video — meets the assignment's requirements per-member even though
+individually delivered...10 documented hyperparameter experiments, a shared `train.py`/
+`play.py`, and a gameplay video....meets the assignment's requirements per-member even though
 cross-member environment consistency does not. Each member's individual, unmerged work is
 also preserved on its own branch (`edwin`, `david`, `nziza`) for reference.
 
@@ -81,60 +81,48 @@ Every hyperparameter value used for all 30 runs (10 per member) is documented in
 [`experiments/results.md`](experiments/results.md), which is also what to use to reproduce any
 individual run via `train.py`.
 
-## Policy Architecture: MLP vs CNN
-
-| Member | Environment | CNN config | CNN result | MLP config | MLP result | Verdict |
-|--------|-------------|-------------|------------|-------------|------------|---------|
-| Edwin | Breakout | baseline | reward 7.55 (peak 11.9) | same hyperparams | reward 5.65 (peak 7.65) | CNN clearly wins — matches theory (convolutions exploit spatial structure in pixel frames). |
-| David | SpaceInvaders | baseline / exp02 | reward 222.30 / 230.15 | same hyperparams | reward 208.80 / 236.05 | Comparable — MLP even edges ahead on the higher-LR config. |
-| Nziza | Pong | best config, -20.20 | -20.20 | not run | — | Outstanding — never executed. |
-
-CNN clearly beat MLP on Breakout (the textbook result), the two were comparable on
-SpaceInvaders (a genuine, environment-dependent nuance worth raising in Q&A), and the
-comparison was not run for Pong. Full reasoning: [`experiments/results.md`](experiments/results.md#policy-architecture-mlp-vs-cnn).
-
 ## Hyperparameter Tuning Results
 
 Each member ran a one-factor-at-a-time (OFAT) sweep: a baseline, then one hyperparameter
 changed at a time, then a combined "best guess" config applying whatever individually helped.
 
-| Member | Env | # | lr | gamma | batch | eps_start | eps_end | eps_decay | Final metric | Noted behavior |
-|--------|-----|---|----|-------|-------|-----------|---------|-----------|---------------|-----------------|
-| Edwin | Breakout | 1 | 1e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | reward 7.55 | Baseline reference point. |
-| Edwin | Breakout | 2 | 1e-3 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | reward 10.25 | 10x higher LR **beat** baseline instead of destabilizing. |
-| Edwin | Breakout | 3 | 1e-5 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | reward 4.45 | Worst run — LR too low to learn meaningfully in 150k steps. |
-| Edwin | Breakout | 4 | 1e-4 | 0.90 | 32 | 1.0 | 0.05 | 0.10 | reward 9.4 | Lower gamma — mild improvement. |
-| Edwin | Breakout | 5 | 1e-4 | 0.995 | 32 | 1.0 | 0.05 | 0.10 | reward 10.4 | Higher gamma — modest improvement. |
-| Edwin | Breakout | 6 | 1e-4 | 0.99 | 16 | 1.0 | 0.05 | 0.10 | reward 9.1 | Smaller batch — roughly neutral. |
-| Edwin | Breakout | 7 | 1e-4 | 0.99 | 128 | 1.0 | 0.05 | 0.10 | reward 10.25 | Larger batch **beat** baseline. |
-| Edwin | Breakout | 8 | 1e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.02 | reward 10.8 | Fast epsilon decay beat baseline. |
-| Edwin | Breakout | 9 | 1e-4 | 0.99 | 32 | 1.0 | 0.10 | 0.30 | reward 7.45 | Slow decay + higher floor — one of the **worst** runs. |
-| Edwin | Breakout | 10 | 5e-4 | 0.99 | 64 | 1.0 | 0.02 | 0.15 | reward 16.85 | **Best run overall** — combined config compounded individual gains. |
-| David | SpaceInvaders | 1 | 1e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | reward 222.30 | Baseline reference point. |
-| David | SpaceInvaders | 2 | 1e-3 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | reward 230.15 | Higher LR slightly beat baseline. |
-| David | SpaceInvaders | 3 | 1e-5 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | reward 281.75 | **2nd-best run** — opposite of Edwin's Breakout LR finding. |
-| David | SpaceInvaders | 4 | 1e-4 | 0.90 | 32 | 1.0 | 0.05 | 0.10 | reward 261.70 | Lower gamma clearly helped. |
-| David | SpaceInvaders | 5 | 1e-4 | 0.995 | 32 | 1.0 | 0.05 | 0.10 | reward 213.20 | Higher gamma — worst gamma setting tested. |
-| David | SpaceInvaders | 6 | 1e-4 | 0.99 | 16 | 1.0 | 0.05 | 0.10 | reward 240.90 | Smaller batch beat baseline. |
-| David | SpaceInvaders | 7 | 1e-4 | 0.99 | 128 | 1.0 | 0.05 | 0.10 | reward 206.80 | **Worst CNN run** — opposite of Edwin's Breakout batch finding. |
-| David | SpaceInvaders | 8 | 1e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.02 | reward 248.25 | Fast epsilon decay beat baseline. |
-| David | SpaceInvaders | 9 | 1e-4 | 0.99 | 32 | 1.0 | 0.10 | 0.30 | reward 219.95 | Roughly baseline-level. **Promoted champion model.** |
-| David | SpaceInvaders | 10 | 5e-4 | 0.99 | 64 | 1.0 | 0.02 | 0.15 | reward 286.55 | **Numerically best run** — same combined-config pattern as Edwin. |
-| Nziza | Pong | 1 | 1e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | eval -21.00 | Baseline stayed at the minimum score. |
-| Nziza | Pong | 2 | 5e-4 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | eval -21.00 | Higher LR did not improve evaluation. |
-| Nziza | Pong | 3 | 5e-5 | 0.99 | 32 | 1.0 | 0.05 | 0.10 | eval -21.00 | Lower LR also stayed at the minimum. |
-| Nziza | Pong | 4 | 1e-4 | 0.95 | 32 | 1.0 | 0.05 | 0.10 | eval -21.00 | Shorter horizon — no measurable gain. |
-| Nziza | Pong | 5 | 1e-4 | 0.999 | 32 | 1.0 | 0.05 | 0.10 | eval -21.00 | Longer horizon — no measurable gain. |
-| Nziza | Pong | 6 | 1e-4 | 0.99 | 64 | 1.0 | 0.05 | 0.10 | eval -20.60 | First measurable improvement, after 150k steps. |
-| Nziza | Pong | 7 | 1e-4 | 0.99 | 128 | 1.0 | 0.05 | 0.10 | eval -20.20 | **Best run** — same "larger batch helps" direction as Edwin. |
-| Nziza | Pong | 8 | 1e-4 | 0.99 | 32 | 1.0 | 0.01 | 0.10 | eval -21.00 | Faster exploitation did not improve evaluation. |
-| Nziza | Pong | 9 | 1e-4 | 0.99 | 32 | 1.0 | 0.10 | 0.30 | eval -21.00 | Longer exploration did not improve within budget. |
-| Nziza | Pong | 10 | 5e-4 | 0.99 | 64 | 1.0 | 0.02 | 0.20 | eval -21.00 | Combined best-guess config did **not** improve, unlike Edwin's and David's. |
+| Member | Env           | #   | lr   | gamma | batch | eps_start | eps_end | eps_decay | Final metric  | Noted behavior                                                              |
+| ------ | ------------- | --- | ---- | ----- | ----- | --------- | ------- | --------- | ------------- | --------------------------------------------------------------------------- |
+| Edwin  | Breakout      | 1   | 1e-4 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | reward 7.55   | Baseline reference point.                                                   |
+| Edwin  | Breakout      | 2   | 1e-3 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | reward 10.25  | 10x higher LR **beat** baseline instead of destabilizing.                   |
+| Edwin  | Breakout      | 3   | 1e-5 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | reward 4.45   | Worst run — LR too low to learn meaningfully in 150k steps.                 |
+| Edwin  | Breakout      | 4   | 1e-4 | 0.90  | 32    | 1.0       | 0.05    | 0.10      | reward 9.4    | Lower gamma — mild improvement.                                             |
+| Edwin  | Breakout      | 5   | 1e-4 | 0.995 | 32    | 1.0       | 0.05    | 0.10      | reward 10.4   | Higher gamma — modest improvement.                                          |
+| Edwin  | Breakout      | 6   | 1e-4 | 0.99  | 16    | 1.0       | 0.05    | 0.10      | reward 9.1    | Smaller batch — roughly neutral.                                            |
+| Edwin  | Breakout      | 7   | 1e-4 | 0.99  | 128   | 1.0       | 0.05    | 0.10      | reward 10.25  | Larger batch **beat** baseline.                                             |
+| Edwin  | Breakout      | 8   | 1e-4 | 0.99  | 32    | 1.0       | 0.05    | 0.02      | reward 10.8   | Fast epsilon decay beat baseline.                                           |
+| Edwin  | Breakout      | 9   | 1e-4 | 0.99  | 32    | 1.0       | 0.10    | 0.30      | reward 7.45   | Slow decay + higher floor — one of the **worst** runs.                      |
+| Edwin  | Breakout      | 10  | 5e-4 | 0.99  | 64    | 1.0       | 0.02    | 0.15      | reward 16.85  | **Best run overall** — combined config compounded individual gains.         |
+| David  | SpaceInvaders | 1   | 1e-4 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | reward 222.30 | Baseline reference point.                                                   |
+| David  | SpaceInvaders | 2   | 1e-3 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | reward 230.15 | Higher LR slightly beat baseline.                                           |
+| David  | SpaceInvaders | 3   | 1e-5 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | reward 281.75 | **2nd-best run** — opposite of Edwin's Breakout LR finding.                 |
+| David  | SpaceInvaders | 4   | 1e-4 | 0.90  | 32    | 1.0       | 0.05    | 0.10      | reward 261.70 | Lower gamma clearly helped.                                                 |
+| David  | SpaceInvaders | 5   | 1e-4 | 0.995 | 32    | 1.0       | 0.05    | 0.10      | reward 213.20 | Higher gamma — worst gamma setting tested.                                  |
+| David  | SpaceInvaders | 6   | 1e-4 | 0.99  | 16    | 1.0       | 0.05    | 0.10      | reward 240.90 | Smaller batch beat baseline.                                                |
+| David  | SpaceInvaders | 7   | 1e-4 | 0.99  | 128   | 1.0       | 0.05    | 0.10      | reward 206.80 | **Worst CNN run** — opposite of Edwin's Breakout batch finding.             |
+| David  | SpaceInvaders | 8   | 1e-4 | 0.99  | 32    | 1.0       | 0.05    | 0.02      | reward 248.25 | Fast epsilon decay beat baseline.                                           |
+| David  | SpaceInvaders | 9   | 1e-4 | 0.99  | 32    | 1.0       | 0.10    | 0.30      | reward 219.95 | Roughly baseline-level. **Promoted champion model.**                        |
+| David  | SpaceInvaders | 10  | 5e-4 | 0.99  | 64    | 1.0       | 0.02    | 0.15      | reward 286.55 | **Numerically best run** — same combined-config pattern as Edwin.           |
+| Nziza  | Pong          | 1   | 1e-4 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | eval -21.00   | Baseline stayed at the minimum score.                                       |
+| Nziza  | Pong          | 2   | 5e-4 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | eval -21.00   | Higher LR did not improve evaluation.                                       |
+| Nziza  | Pong          | 3   | 5e-5 | 0.99  | 32    | 1.0       | 0.05    | 0.10      | eval -21.00   | Lower LR also stayed at the minimum.                                        |
+| Nziza  | Pong          | 4   | 1e-4 | 0.95  | 32    | 1.0       | 0.05    | 0.10      | eval -21.00   | Shorter horizon — no measurable gain.                                       |
+| Nziza  | Pong          | 5   | 1e-4 | 0.999 | 32    | 1.0       | 0.05    | 0.10      | eval -21.00   | Longer horizon — no measurable gain.                                        |
+| Nziza  | Pong          | 6   | 1e-4 | 0.99  | 64    | 1.0       | 0.05    | 0.10      | eval -20.60   | First measurable improvement, after 150k steps.                             |
+| Nziza  | Pong          | 7   | 1e-4 | 0.99  | 128   | 1.0       | 0.05    | 0.10      | eval -20.20   | **Best run** — same "larger batch helps" direction as Edwin.                |
+| Nziza  | Pong          | 8   | 1e-4 | 0.99  | 32    | 1.0       | 0.01    | 0.10      | eval -21.00   | Faster exploitation did not improve evaluation.                             |
+| Nziza  | Pong          | 9   | 1e-4 | 0.99  | 32    | 1.0       | 0.10    | 0.30      | eval -21.00   | Longer exploration did not improve within budget.                           |
+| Nziza  | Pong          | 10  | 5e-4 | 0.99  | 64    | 1.0       | 0.02    | 0.20      | eval -21.00   | Combined best-guess config did **not** improve, unlike Edwin's and David's. |
 
-*(Edwin's/David's "final metric" is the training-time rolling-mean reward from the last 20
+_(Edwin's/David's "final metric" is the training-time rolling-mean reward from the last 20
 episodes; Nziza's is the stricter `EvalCallback` greedy-evaluation best mean reward — which is
 also why her numbers read as more consistently poor: her agent genuinely never learned to win
-at Pong within 200k steps, rather than the metric being unusually harsh.)*
+at Pong within 200k steps, rather than the metric being unusually harsh.)_
 
 ### Cross-member insights
 
