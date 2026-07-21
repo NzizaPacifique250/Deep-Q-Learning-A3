@@ -6,17 +6,22 @@ class — the equivalent is model.predict(obs, deterministic=True), which
 always picks the highest-Q action instead of sampling exploration actions.
 That's what this script does.
 
-Three modes:
+Four modes:
   --mode record   (default) Renders off-screen and saves an .mp4 via SB3's
                    VecVideoRecorder — this is the mode used for every
                    submission gameplay video in this repo.
   --mode human     Opens a live GUI window instead of saving a file.
   --mode fast      Headless, no render/recording — just prints scores.
+  --mode keyboard  Opens a window that you control with the keyboard. A
+                   trained model is not needed in this mode.
 
 Usage:
     python play.py --env-id ALE/Breakout-v5 --model models/dqn_model_edwin_breakout.zip --mode record --episodes 3
     python play.py --env-id ALE/SpaceInvaders-v5 --model models/dqn_model_david_spaceinvaders.zip --mode human
     python play.py --env-id ALE/Pong-v5 --model models/dqn_model_nziza_pong.zip --mode fast --episodes 10
+    python play.py --env-id ALE/Pong-v5 --mode keyboard
+    python play.py --env-id ALE/Breakout-v5 --mode keyboard
+    python play.py --env-id ALE/SpaceInvaders-v5 --mode keyboard
 """
 
 import argparse
@@ -35,17 +40,121 @@ FRAME_STACK = 4
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Play an Atari environment with a trained DQN model.")
+    parser = argparse.ArgumentParser(description="Watch a DQN model or play an Atari game with the keyboard.")
     parser.add_argument("--env-id", type=str, required=True, help="Atari environment id, e.g. ALE/Breakout-v5 — must match the model's training env")
-    parser.add_argument("--model", type=str, required=True, help="Path to the saved model .zip")
+    parser.add_argument("--model", type=str, help="Path to the saved model .zip (not needed in keyboard mode)")
     parser.add_argument("--episodes", type=int, default=3, help="Number of episodes to play")
     parser.add_argument("--sleep", type=float, default=0.01, help="Delay between frames (seconds), human mode only")
-    parser.add_argument("--mode", type=str, default="record", choices=["record", "human", "fast"],
-                         help="record = save .mp4 (default), human = live GUI window, fast = headless scores only")
+    parser.add_argument("--mode", type=str, default="record", choices=["record", "human", "fast", "keyboard"],
+                         help="record = save .mp4 (default), human = watch the trained model, fast = scores only, keyboard = play yourself")
     parser.add_argument("--video-folder", type=str, default="videos", help="Where to save the .mp4 (record mode)")
     parser.add_argument("--video-length", type=int, default=3000, help="Max frames to capture (record mode)")
     parser.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "mps", "cuda"])
     return parser.parse_args()
+
+
+def keyboard_controls(env_id, action_ids, pygame):
+    """Return the correct key map and help text for a supported game."""
+    game = env_id.rsplit("/", maxsplit=1)[-1].split("-", maxsplit=1)[0].lower()
+    common_actions = {"NOOP", "FIRE", "RIGHT", "LEFT"}
+    missing_actions = common_actions.difference(action_ids)
+    if missing_actions:
+        missing = ", ".join(sorted(missing_actions))
+        raise SystemExit(f"Keyboard controls are not configured for {env_id}; missing actions: {missing}")
+
+    fire = action_ids["FIRE"]
+
+    if game == "pong":
+        up = action_ids["RIGHT"]
+        down = action_ids["LEFT"]
+        up_fire = action_ids.get("RIGHTFIRE", up)
+        down_fire = action_ids.get("LEFTFIRE", down)
+        return {
+            "w": up,
+            pygame.K_UP: up,
+            "s": down,
+            pygame.K_DOWN: down,
+            " ": fire,
+            ("w", " "): up_fire,
+            (pygame.K_UP, pygame.K_SPACE): up_fire,
+            ("s", " "): down_fire,
+            (pygame.K_DOWN, pygame.K_SPACE): down_fire,
+        }, [
+            "Move up:   W or Up Arrow",
+            "Move down: S or Down Arrow",
+            "Serve:     Space",
+        ]
+
+    if game in {"breakout", "spaceinvaders"}:
+        left = action_ids["LEFT"]
+        right = action_ids["RIGHT"]
+        left_fire = action_ids.get("LEFTFIRE", left)
+        right_fire = action_ids.get("RIGHTFIRE", right)
+        fire_label = "Launch ball" if game == "breakout" else "Fire"
+        return {
+            "a": left,
+            pygame.K_LEFT: left,
+            "d": right,
+            pygame.K_RIGHT: right,
+            " ": fire,
+            ("a", " "): left_fire,
+            (pygame.K_LEFT, pygame.K_SPACE): left_fire,
+            ("d", " "): right_fire,
+            (pygame.K_RIGHT, pygame.K_SPACE): right_fire,
+        }, [
+            "Move left:  A or Left Arrow",
+            "Move right: D or Right Arrow",
+            f"{fire_label}:".ljust(12) + " Space",
+        ]
+
+    raise SystemExit(
+        f"Keyboard mode supports ALE/Pong-v5, ALE/Breakout-v5, and "
+        f"ALE/SpaceInvaders-v5; received {env_id}"
+    )
+
+
+def play_with_keyboard(env_id):
+    """Open an Atari game and let a person control it with the keyboard."""
+    try:
+        import pygame
+        from gymnasium.utils.play import play as gym_play
+    except ImportError as exc:
+        raise SystemExit("Keyboard mode requires pygame. Run: pip install -r requirements.txt") from exc
+
+    env = gym.make(env_id, render_mode="rgb_array")
+    meanings = env.unwrapped.get_action_meanings()
+    action_ids = {name: index for index, name in enumerate(meanings)}
+
+    try:
+        keys_to_action, instructions = keyboard_controls(env_id, action_ids, pygame)
+    except SystemExit:
+        env.close()
+        raise
+
+    score = 0.0
+
+    def print_episode_score(_obs, _next_obs, _action, reward, terminated, truncated, _info):
+        nonlocal score
+        score += float(reward)
+        if terminated or truncated:
+            print(f"Game over — score: {score:.1f}")
+            score = 0.0
+
+    print("Keyboard controls:")
+    for instruction in instructions:
+        print(f"  {instruction}")
+    print("  Quit:      Escape or close the window")
+
+    try:
+        gym_play(
+            env,
+            keys_to_action=keys_to_action,
+            noop=action_ids["NOOP"],
+            callback=print_episode_score,
+            zoom=3,
+        )
+    finally:
+        env.close()
 
 
 def make_play_env(env_id, mode):
@@ -63,6 +172,13 @@ def make_play_env(env_id, mode):
 
 def main():
     args = parse_args()
+
+    if args.mode == "keyboard":
+        play_with_keyboard(args.env_id)
+        return
+
+    if not args.model:
+        raise SystemExit("--model is required unless --mode keyboard is used")
 
     if not os.path.exists(args.model):
         raise SystemExit(f"Model not found: {args.model}")

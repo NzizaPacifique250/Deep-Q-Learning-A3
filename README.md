@@ -87,9 +87,24 @@ python play.py --env-id ALE/Pong-v5 --model models/dqn_model_nziza_pong.zip --mo
 
 ```
 
+Play any of the three games yourself with the keyboard (no trained model is
+needed):
+
+```bash
+python play.py --env-id ALE/Pong-v5 --mode keyboard
+python play.py --env-id ALE/Breakout-v5 --mode keyboard
+python play.py --env-id ALE/SpaceInvaders-v5 --mode keyboard
+```
+
+| Game | Move | Action | Quit |
+| --- | --- | --- | --- |
+| Pong | `W`/`S` or Up/Down arrows | `Space` to serve | `Esc` |
+| Breakout | `A`/`D` or Left/Right arrows | `Space` to launch the ball | `Esc` |
+| Space Invaders | `A`/`D` or Left/Right arrows | `Space` to fire | `Esc` |
+
 Every hyperparameter value used for all runs is documented in
-[`experiments/results.md`](https://www.google.com/search?q=experiments/results.md), which is also what to use to reproduce any
-individual run via `train.py`.
+[`experiments/results.md`](experiments/results.md), which is also what to use to
+reproduce any individual run via `train.py`.
 
 ## Hyperparameter Tuning Results
 
@@ -151,7 +166,7 @@ Based strictly on the data collected across all 40 experiments, we observed that
 * **Exploration Rate (Epsilon):** Fast decay strategies (e.g., decaying to 0.02) consistently beat the baseline configurations for both Breakout and Space Invaders, encouraging earlier exploitation. Slower decay rates with higher floors (0.10 / 0.30 decay) resulted in some of the worst runs, particularly in Breakout.
 * **Combined Configurations & Policy Architecture:** Synthesizing the best individual hyperparameters into a "best guess" configuration (Experiment 10) proved successful for Breakout and Space Invaders (CNN), compounding the individual gains. Furthermore, David's evaluation sweep demonstrated that switching policy architecture from CNN to MLP—paired with a fast epsilon decay—yielded an evaluation score of 413.3, drastically outperforming all purely hyperparameter-tuned CNN variants.
 
-Full per-experiment reasoning and detail: [`experiments/results.md`](https://www.google.com/search?q=experiments/results.md).
+Full per-experiment reasoning and detail: [`experiments/results.md`](experiments/results.md).
 
 ## Individual Contribution
 
